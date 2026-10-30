@@ -42,8 +42,7 @@ class HaClient {
             if (!response.isSuccessful) throw IOException("State read failed (HTTP " + response.code + ").")
             val body = response.body ?: throw IOException("Home Assistant returned no state data.")
             if (body.contentLength() > 4_000_000L) throw IOException("State response exceeded 4 MB.")
-            val raw = body.charStream().use { it.readText() }
-            if (raw.length > 4_000_000) throw IOException("State response exceeded 4 MB.")
+            val raw = BoundedText.read(body.charStream(), 4_000_000)
             val json = JSONArray(raw)
             val result = ArrayList<HaEntity>()
             for (i in 0 until json.length()) {
