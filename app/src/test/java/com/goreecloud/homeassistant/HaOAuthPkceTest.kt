@@ -50,6 +50,12 @@ class HaOAuthPkceTest {
         }
     }
 
+    @Test fun rejectsUnsupportedRedirectSchemes() {
+        assertThrows(IllegalArgumentException::class.java) {
+            HaOAuthPkce.begin("https://home.example", client, "javascript:callback")
+        }
+    }
+
     @Test fun rejectsUntrustedClientId() {
         assertThrows(IllegalArgumentException::class.java) {
             HaOAuthPkce.begin("https://home.example", "http://untrusted.example", redirect)
