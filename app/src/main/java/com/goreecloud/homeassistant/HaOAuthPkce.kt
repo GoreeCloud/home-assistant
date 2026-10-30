@@ -94,10 +94,11 @@ object HaOAuthPkce {
         require(uri.isAbsolute && uri.rawFragment == null && uri.rawUserInfo == null) {
             "Invalid redirect URI."
         }
-        if (uri.scheme.equals("http", ignoreCase = true) ||
-            uri.scheme.equals("https", ignoreCase = true)) {
-            require(uri.host != null) { "Invalid web redirect URI." }
+        require(uri.scheme.equals("https", ignoreCase = true) ||
+            uri.scheme.equals("goreecloud-homeassistant", ignoreCase = true)) {
+            "Unsupported authorization redirect scheme."
         }
+        require(uri.host != null) { "Redirect URI requires a host." }
         return uri
     }
 
