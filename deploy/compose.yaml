@@ -1,0 +1,17 @@
+# This is a deployment blueprint, not evidence of a running service.
+# Run on the VPS only after reviewing existing workloads, backups and private connectivity.
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: goreecloud-home-assistant
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8123:8123"
+    environment:
+      TZ: America/New_York
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 60s
