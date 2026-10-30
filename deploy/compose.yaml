@@ -1,14 +1,14 @@
-# This is a deployment blueprint, not evidence of a running service.
-# Run on the VPS only after reviewing existing workloads, backups and private connectivity.
+# Deployment blueprint only; no VPS state is changed by this file.
+# A reviewed digest is mandatory; never expose Home Assistant's raw 8123 port publicly.
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+    image: "${HOME_ASSISTANT_IMAGE:?Set a reviewed digest-pinned Home Assistant image}"
     container_name: goreecloud-home-assistant
     restart: unless-stopped
     ports:
       - "127.0.0.1:8123:8123"
     environment:
-      TZ: America/New_York
+      TZ: "${TZ:?Configure the server timezone}"
     volumes:
       - ./config:/config
       - /etc/localtime:/etc/localtime:ro

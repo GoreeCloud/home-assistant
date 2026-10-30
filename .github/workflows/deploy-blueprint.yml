@@ -1,0 +1,34 @@
+name: VPS deployment blueprint (non-deploying)
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compose-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax and loopback binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n deploy/preflight.sh
+          grep -Fq '"127.0.0.1:8123:8123"' deploy/compose.yaml
+      - name: Reject missing required image digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          if env -u HOME_ASSISTANT_IMAGE TZ=Etc/UTC docker compose -f deploy/compose.yaml config --quiet 2>/dev/null; then
+            echo 'FAIL: missing image digest was accepted'
+            exit 1
+          fi
+      - name: Validate Compose syntax using inert example digest
+        shell: bash
+        env:
+          HOME_ASSISTANT_IMAGE: ghcr.io/home-assistant/home-assistant@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          TZ: Etc/UTC
+        run: docker compose -f deploy/compose.yaml config --quiet
