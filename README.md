@@ -16,10 +16,12 @@ The repository does not contain a Gradle wrapper JAR. CI provisions Gradle separ
 
 ## Safety and limitations
 
-Use a valid, trusted HTTPS private-network or reviewed TLS gateway endpoint. Never publicly expose TCP 8123 without a separate security review. Manually provisioned long-lived tokens are a **development bridge**; Home Assistant's OAuth/IndieAuth flow is required for production onboarding. State snapshots refresh on demand; there is no real-time WebSocket, home LAN discovery from the VPS, runtime-verified APK, or deployed backend yet.
+Use a valid, trusted HTTPS private-network or reviewed TLS gateway endpoint. Never publicly expose TCP 8123 without a separate security review. Manually provisioned long-lived tokens are a **development bridge**; Home Assistant's OAuth/IndieAuth flow is required for production onboarding. The native Android source has a foreground-only WebSocket entity subscription that triggers REST refreshes; live Home Assistant and Android-device validation remain pending. There is no verified home LAN discovery from the VPS, runtime-validated APK, or deployed backend yet.
 
 See [architecture and deployment](docs/ARCHITECTURE.md), [VPS Compose blueprint](deploy/compose.yaml), [GC UI](https://github.com/GoreeCloud/gc-ui), and [Home Assistant REST API](https://developers.home-assistant.io/docs/api/rest/).
 
 ## Licensing
 
 GoreeCloud-authored Android client source is licensed under [Apache-2.0](LICENSE). Home Assistant Container is a separate upstream project with its own licensing and trademarks; this project is not endorsed by Home Assistant.
+
+See [Android authentication plan](docs/AUTHENTICATION.md) for the source-level PKCE foundation and production sign-in blockers.
