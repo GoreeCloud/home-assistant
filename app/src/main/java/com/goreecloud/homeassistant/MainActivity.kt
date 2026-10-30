@@ -21,6 +21,14 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.launch
 
 private val iris = Color(0xFF6053CD)
@@ -67,6 +75,19 @@ private fun GoreeAssistant(store: SecretStore) {
     var busy by remember { mutableStateOf(false) }
     var connected by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var liveConnected by remember { mutableStateOf(false) }
+    var liveAuthRejected by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var foreground by remember(lifecycleOwner) {
+        mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, _ ->
+            foreground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     suspend fun refresh(config: HaConnection) {
         busy = true
@@ -82,9 +103,53 @@ private fun GoreeAssistant(store: SecretStore) {
         }
     }
 
-    LaunchedEffect(connection, settingUp) {
+    LaunchedEffect(connection, settingUp, foreground) {
         val config = connection
-        if (config != null && !settingUp && entities.isEmpty()) refresh(config)
+        liveConnected = false
+        if (config != null && !settingUp && foreground) {
+            if (entities.isEmpty()) refresh(config)
+            val active = AtomicBoolean(true)
+            val pending = Channel<Unit>(Channel.CONFLATED)
+            try {
+                coroutineScope {
+                    launch {
+                        HaLiveFeed().observe(
+                            connection = config,
+                            onSubscribed = {
+                                if (active.get()) {
+                                    scope.launch { if (active.get()) liveConnected = true }
+                                    pending.trySend(Unit) // refresh after each successful reconnect
+                                }
+                            },
+                            onEntityChange = { if (active.get()) pending.trySend(Unit) },
+                            onDisconnected = {
+                                if (active.get()) scope.launch { if (active.get()) liveConnected = false }
+                            },
+                            onAuthenticationRejected = {
+                                if (active.get()) scope.launch {
+                                    if (active.get()) {
+                                        connected = false
+                                        liveAuthRejected = true
+                                        message = "Home Assistant rejected this login. Change your connection."
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    launch {
+                        for (change in pending) {
+                            delay(700) // debounce bursts; REST verifies the authoritative state
+                            while (busy && isActive) delay(200)
+                            if (isActive && !liveAuthRejected) refresh(config)
+                        }
+                    }
+                }
+            } finally {
+                active.set(false)
+                pending.close()
+                liveConnected = false
+            }
+        }
     }
 
     if (settingUp) {
@@ -107,6 +172,7 @@ private fun GoreeAssistant(store: SecretStore) {
                         entities = live
                         connection = config
                         connected = true
+                        liveAuthRejected = false
                         settingUp = false
                         storeError = null
                     } catch (e: Exception) {
@@ -123,6 +189,7 @@ private fun GoreeAssistant(store: SecretStore) {
             entities = entities,
             busy = busy,
             connected = connected,
+            liveConnected = liveConnected,
             message = message,
             onRefresh = {
                 connection?.let { c -> scope.launch { refresh(c) } }
@@ -147,9 +214,10 @@ private fun GoreeAssistant(store: SecretStore) {
                     }
                 }
             },
-            onChange = { settingUp = true; message = null },
+            onChange = { settingUp = true; liveAuthRejected = false; message = null },
             onDisconnect = {
                 try {
+                    liveAuthRejected = false
                     store.clear()
                     connection = null
                     entities = emptyList()
@@ -238,6 +306,7 @@ private fun Dashboard(
     entities: List<HaEntity>,
     busy: Boolean,
     connected: Boolean,
+    liveConnected: Boolean,
     message: String?,
     onRefresh: () -> Unit,
     onControl: (HaEntity) -> Unit,
@@ -293,7 +362,8 @@ private fun Dashboard(
                             color = if (connected) MaterialTheme.colorScheme.onSecondaryContainer
                                 else MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(10.dp))
-                        Text(if (connected) "Connected · last fetched snapshot"
+                        Text(if (connected && liveConnected) "Connected · live updates active"
+                            else if (connected) "Connected · manual refresh / live reconnecting"
                             else "Offline or unverified · controls disabled",
                             style = MaterialTheme.typography.bodyMedium)
                     }
