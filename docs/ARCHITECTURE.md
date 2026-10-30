@@ -27,14 +27,18 @@ A VPS can run Home Assistant Container but cannot natively discover the home LAN
 3. On VPS, create a restricted directory, protect config, and back up existing workloads. Run docker compose config and bring up the service only after review.
 4. Confirm loopback exposure, logs, actual authenticated API response, restart, restore test in an isolated environment, and version-rollback plan.
 5. Configure a private HTTPS endpoint with valid certificate and narrowly scoped access, then run the Android app on a representative device.
-6. Replace the manual-token onboarding with OAuth, add WebSocket state subscriptions and security lifecycle checks; test accessibility and release signing.
+6. Replace the manual-token onboarding with OAuth, verify the new foreground-only WebSocket entity subscription on an actual instance, then validate OAuth and security lifecycle behavior; test accessibility and release signing.
 
 ## Further roadmap
 
-**P1:** full real-device Android validation, OAuth, WebSocket subscriptions, native room navigation, offline read-only snapshots, accessible states.
+**P1:** full real-device Android validation, OAuth, WebSocket runtime validation and subscription recovery, native room navigation, offline read-only snapshots, accessible states.
 
 **P2:** independent web app with GC UI tokens; hardened permissions, scene and automation editors, home roles.
 
 **P3:** Android widgets, privacy-preserving notifications, energy history, smart-home local bridge, optional voice.
 
 Sensitive controls (locks, alarms, garage doors, surveillance feeds) need separate capability-, privacy-, and confirmation-oriented implementation. Never log tokens or fabricate device states. Deployment, app-runtime testing and release distribution are currently pending.
+
+## Android WebSocket source milestone (October 30, 2026)
+
+The Android source now contains a foreground-only authenticated `wss://` entity subscription following the [official WebSocket API](https://developers.home-assistant.io/docs/api/websocket/). The stream does not mutate devices: updates are coalesced and trigger an authenticated REST state refresh; the initial subscription snapshot is not treated as a verified command outcome. WebSocket retries are bounded by backoff, and application backgrounding cancels the socket. Authentication rejection disables device controls until the user reconnects. These are source behaviors; live Home Assistant integration and Android-device lifecycle acceptance remain pending.
