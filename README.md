@@ -1,27 +1,40 @@
 # GoreeCloud Home Assistant
 
-**Development foundation, not released or deployed.**
+GoreeCloud Home Assistant is an early **native Android client** for the upstream [Home Assistant](https://www.home-assistant.io/) platform. An independent web client is planned. This repository does **not** represent a deployed backend, an accepted Android release, or a GoreeCloud-authored home-automation engine.
 
-I am building a privacy-first, genuinely native Android client for Home Assistant, followed by an independent web app. The backend is the upstream Home Assistant Container image, not a GoreeCloud-authored automation engine.
+## Current Android foundation
 
-Initial source includes Kotlin/Jetpack Compose UI, manual HTTPS and long-lived-token onboarding, Keystore-encrypted local credentials, authenticated entity state reads, allowlisted light/switch/input_boolean toggles and scene activation, Android build CI, and a VPS Compose blueprint. Android debug compilation, unit tests, and APK assembly passed in [GitHub CI run 41031950650](https://github.com/GoreeCloud/home-assistant/actions/runs/41031950650) on October 30, 2026. This verifies source build, not device runtime, release-signing, Home Assistant integration, or VPS deployment.
+The Kotlin/Jetpack Compose source includes an explicit HTTPS connection flow using a manually provisioned long-lived token for development, Android Keystore-backed local credential storage, authenticated entity reads, and restricted actions for lights, switches, input booleans and scenes. A foreground-only WebSocket subscription can request REST state refreshes when entities change. These are source-level capabilities; live Home Assistant integration and physical-device validation are pending.
 
-## Build
+The repository also contains a PKCE helper and callback-validation tests. **Full OAuth login is not connected.** A hosted client-ID declaration, Android redirect registration, token exchange and refresh lifecycle must be implemented and verified before consumer onboarding. See the [authentication plan](docs/AUTHENTICATION.md).
 
-Requires JDK 17, Android SDK 36, and Gradle 8.13.
+## Build and verification
 
-    gradle :app:testDebugUnitTest :app:assembleDebug
+Development builds require JDK 17, Android SDK 36 and Gradle 8.13. The repository does not include a Gradle wrapper JAR; CI provisions Gradle separately.
 
-The repository does not contain a Gradle wrapper JAR. CI provisions Gradle separately. A CI debug APK is **not** a release; GoreeCloud APK delivery requires uploading a standalone verified installer to GoreeCloud/Artifacts on Google Drive.
+```sh
+gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+```
 
-## Safety and limitations
+The [Android CI workflow](.github/workflows/android.yml) runs these tasks; [run 41160718246](https://github.com/GoreeCloud/home-assistant/actions/runs/41160718246) passed on the reviewed `main` revision (`56aeb86`). This confirms a debug build and automated source tests, **not** a working installation or reliable control of real devices. The internal debug APK is not a signed production installer and has not been accepted for standalone delivery.
 
-Use a valid, trusted HTTPS private-network or reviewed TLS gateway endpoint. Never publicly expose TCP 8123 without a separate security review. Manually provisioned long-lived tokens are a **development bridge**; Home Assistant's OAuth/IndieAuth flow is required for production onboarding. The native Android source has a foreground-only WebSocket entity subscription that triggers REST refreshes; live Home Assistant and Android-device validation remain pending. There is no verified home LAN discovery from the VPS, runtime-validated APK, or deployed backend yet.
+## Home Assistant backend: blueprint only
 
-See [architecture and deployment](docs/ARCHITECTURE.md), [VPS Compose blueprint](deploy/compose.yaml), [GC UI](https://github.com/GoreeCloud/gc-ui), and [Home Assistant REST API](https://developers.home-assistant.io/docs/api/rest/).
+[`deploy/compose.yaml`](deploy/compose.yaml) is a private VPS deployment blueprint, not proof of a running service. Its image reference must be pinned to a reviewed immutable digest before deployment. The plan keeps port **8123** bound to VPS loopback; Android access requires a separately tested, authenticated HTTPS path over authorized private networking.
 
-## Licensing
+A VPS does not automatically discover a home's LAN devices or connect to Zigbee/Z-Wave radios. Any bridge to home hardware needs separate private-network design and testing. Do not expose raw port 8123 to the public Internet or treat a successful Compose configuration check as operational acceptance.
 
-GoreeCloud-authored Android client source is licensed under [Apache-2.0](LICENSE). Home Assistant Container is a separate upstream project with its own licensing and trademarks; this project is not endorsed by Home Assistant.
+See [deployment instructions](deploy/README.md) and [architecture](docs/ARCHITECTURE.md). No deployment is asserted here.
 
-See [Android authentication plan](docs/AUTHENTICATION.md) for the source-level PKCE foundation and production sign-in blockers.
+## Release blockers
+
+- Replace manual development tokens with end-to-end OAuth login, renewal and revocation.
+- Test REST actions and WebSocket reconnect behavior against an authorized live instance; then validate Android foreground/background behavior.
+- Perform physical-device testing, accessibility review, credential-handling review and release-signing checks.
+- Verify standalone APK delivery through the authorized `GoreeCloud/Artifacts` Google Drive folder before claiming that an installer has been distributed.
+
+Sensitive operations such as locks and alarms require separate safeguards and acceptance. No live home device or backend state should be inferred from source tests.
+
+## License and provenance
+
+GoreeCloud-authored Android client source is licensed under [Apache-2.0](LICENSE). Home Assistant Container is an independent upstream product with its own terms and trademarks; this project is not endorsed by the Home Assistant organization.
